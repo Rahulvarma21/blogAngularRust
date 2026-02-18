@@ -1,202 +1,223 @@
-# 1. Angular UI Feature Explanation (Component + Service)
+# 1. API Explanation (Route → Handler → Logic → Response)
 
-## Component Created — `PostListComponent`
+## Route → Handler Mapping
 
-The UI feature implemented is a **Post List Component**, which fetches and displays blog posts from the Rust backend.
+Rust uses a router to map HTTP requests to specific handler functions.
 
-### Purpose of Component
+### Example
 
-* Display list of blog posts
-* Handle user interaction
-* Call Angular service
-* Render backend data in UI
+```rust
+Router::new()
+    .route("/posts", post(create_post))
+    .route("/posts", get(get_all_posts))
+```
 
----
+* **POST /posts** → `create_post` handler
+* **GET /posts** → `get_all_posts` handler
 
-## User Interaction Handling
-
-The UI includes a **"View Posts"** button.
-
-### Flow
-
-1. User clicks **View Posts**
-2. Angular triggers `loadPosts()` function
-3. Component calls Angular service
-4. Data fetched from Rust backend
-5. UI updates automatically using Angular binding
+The router ensures the correct handler executes based on **HTTP method and endpoint**.
 
 ---
 
-## Angular Service — `PostService`
+## Handler: Receiving and Processing Request
 
-Angular services handle **API calls and business logic** separately from UI components.
+When Angular sends JSON data, Rust converts it into a typed struct.
 
-The `PostService` uses **HttpClient** to communicate with the Rust backend.
+### Example
 
-### Service Method
+```rust
+pub async fn create_post(
+    Json(payload): Json<CreatePostRequest>,
+    State(db): State<PgPool>,
+) -> Result<Json<PostResponse>, StatusCode> {
+```
 
-```ts
-getPosts(): Observable<Post[]> {
-  return this.http.get<Post[]>('http://localhost:3000/posts');
+### Processing Steps
+
+1. Receive JSON request from Angular
+2. Convert JSON → Rust struct
+3. Validate input fields
+4. Apply business logic
+5. Insert into PostgreSQL
+6. Return JSON response
+
+---
+
+## Type-Safe Structs (Input & Output Safety)
+
+Rust uses strongly typed structs to enforce safe API communication.
+
+### Request Struct
+
+```rust
+#[derive(Deserialize)]
+pub struct CreatePostRequest {
+    pub title: String,
+    pub content: String,
 }
 ```
 
-### Service Flow
+### Response Struct
 
-1. Angular sends **HTTP GET request → Rust `/posts`**
-2. Rust route maps to handler
-3. Handler fetches data from PostgreSQL
-4. Rust returns JSON response
-5. Angular service passes data to component
-
----
-
-## UI Update from Backend Data
-
-The component subscribes to the service:
-
-```ts
-this.postService.getPosts().subscribe(data => {
-  this.posts = data;
-});
+```rust
+#[derive(Serialize)]
+pub struct PostResponse {
+    pub id: i32,
+    pub title: String,
+    pub content: String,
+}
 ```
 
-When `posts` variable updates, Angular automatically **re-renders the UI**.
+### Benefits
+
+* Prevents invalid or missing fields
+* Ensures correct data types
+* Compile-time validation
+* Predictable API structure
+* Safer frontend-backend communication
 
 ---
 
-# 2. End-to-End Frontend → Backend Flow
+## JSON Response Handling
+
+Rust automatically converts response structs into JSON using **Serde**.
+
+### Example
+
+```rust
+Ok(Json(PostResponse {
+    id: post.id,
+    title: post.title,
+    content: post.content,
+}))
+```
+
+Angular receives structured JSON and updates the UI accordingly.
+
+---
+
+## Database Interaction (SQLx / SeaORM → PostgreSQL)
+
+The backend interacts with PostgreSQL using **SQLx (or SeaORM)**.
+
+### Example (SQLx)
+
+```rust
+let post = sqlx::query_as!(
+    Post,
+    "INSERT INTO posts (title, content) VALUES ($1, $2) RETURNING id, title, content",
+    payload.title,
+    payload.content
+)
+.fetch_one(&db)
+.await?;
+```
+
+### Flow
+
+1. Rust executes parameterized SQL query
+2. PostgreSQL safely executes query
+3. Inserted row is returned
+4. Rust maps DB row → Rust struct
+5. Struct returned as JSON
+
+This ensures **type-safe, secure, and injection-safe database access**.
+
+---
+
+# 2. End-to-End API Request Flow
 
 ## Architecture Flow
 
 ```
-User clicks "View Posts"
+Angular Service (HTTP POST /posts)
         ↓
-Angular Component (PostListComponent)
+Rust Router
         ↓
-Angular Service (HttpClient GET /posts)
+Rust Handler
+(JSON → Struct, Validation, Business Logic)
         ↓
-Rust API Route (/posts)
+SQLx / SeaORM Query
+(INSERT INTO posts)
         ↓
-Rust Handler + Business Logic
+PostgreSQL Database
         ↓
-PostgreSQL Query (Fetch posts)
+Rust JSON Response (PostResponse)
         ↓
-Rust JSON Response
+Angular receives response
         ↓
-Angular Component receives data
-        ↓
-UI re-renders and displays posts
+UI updates (New Blog Post displayed)
 ```
 
-*(Architecture diagram image attached in PR)*
+*(Architecture diagram attached in PR)*
 
 ---
 
-# 3. Code Implementation
+# 3. Reflection
 
-## Angular Component
+## Why are type-safe, strongly validated Rust APIs important?
 
-### `post-list.component.ts`
+Type-safe Rust APIs are critical in modern backend systems because they provide **reliability, safety, and predictability**. Rust’s strong type system ensures invalid data cannot pass through the API, preventing runtime crashes and unexpected behavior. Compile-time checks catch errors early, reducing production failures. Rust’s strict error handling forces developers to explicitly manage failures, improving backend robustness. Overall, strongly typed Rust APIs lead to secure, stable, and maintainable backend services.
 
-```ts
-import { Component } from '@angular/core';
-import { PostService } from '../services/post.service';
+---
 
-@Component({
-  selector: 'app-post-list',
-  templateUrl: './post-list.component.html'
-})
-export class PostListComponent {
+# 4. AI Feedback Improvement
 
-  posts: any[] = [];
+Before finalizing this PR, I reviewed my API explanation using an AI assistant to improve clarity and architectural understanding.
 
-  constructor(private postService: PostService) {}
+### AI Suggestions
 
-  loadPosts() {
-    this.postService.getPosts().subscribe(data => {
-      this.posts = data;
-    });
-  }
+* Improve explanation of Route → Handler mapping
+* Add clearer explanation of typed struct safety
+* Expand database interaction section
+* Improve end-to-end API flow description
+
+Based on this feedback, the documentation was revised for better clarity and completeness.
+
+---
+
+# API Endpoints
+
+## Create Blog Post
+
+**POST /posts**
+
+### Request Body
+
+```json
+{
+  "title": "My First Blog",
+  "content": "This is my blog content"
+}
+```
+
+### Success Response
+
+```json
+{
+  "id": 1,
+  "title": "My First Blog",
+  "content": "This is my blog content"
 }
 ```
 
 ---
 
-### `post-list.component.html`
+## Get All Blog Posts
 
-```html
-<button (click)="loadPosts()">View Posts</button>
+**GET /posts**
 
-<div *ngFor="let post of posts" class="post">
-  <h3>{{ post.title }}</h3>
-  <p>{{ post.content }}</p>
-</div>
-```
+### Success Response
 
----
-
-## Angular Service
-
-### `post.service.ts`
-
-```ts
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class PostService {
-
-  private apiUrl = 'http://localhost:3000/posts';
-
-  constructor(private http: HttpClient) {}
-
-  getPosts(): Observable<any[]> {
-    return this.http.get<any[]>(this.apiUrl);
+```json
+[
+  {
+    "id": 1,
+    "title": "My First Blog",
+    "content": "This is my blog content"
   }
-}
+]
 ```
 
----
 
-# 4. Reflection
 
-## How Components and Services Improve Scalability and Maintainability
-
-Using components and services makes Angular applications scalable and maintainable because it promotes **modularity, reusability, and separation of concerns**.
-
-Components handle only UI and user interaction, while services manage API communication and business logic. This separation allows code to be easily maintained, tested, and reused across multiple components. As the application grows, modular architecture helps keep the system organized and prevents complexity from increasing.
-
----
-
-# 5. AI Feedback Improvement
-
-Before finalizing this PR, I reviewed my explanation using an AI assistant to improve clarity and structure.
-
-### AI Suggestions Applied
-
-* Improved explanation of component-service separation
-* Added clearer step-by-step data flow
-* Expanded UI update explanation
-* Improved architecture clarity
-
-The documentation was revised accordingly.
-
----
-
-# Case Study (Used in Video)
-
-## Scenario: User clicks **"View Posts"**
-
-1. User clicks **View Posts** button in UI
-2. Angular component triggers `loadPosts()`
-3. Component calls Angular service
-4. Service sends **GET request → Rust `/posts`**
-5. Rust route maps to handler
-6. Handler fetches posts from PostgreSQL
-7. Rust returns JSON response
-8. Angular receives data
-9. UI automatically updates and displays posts
