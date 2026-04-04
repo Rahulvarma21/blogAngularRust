@@ -1,29 +1,22 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Auth } from '../../core/auth/auth';
-import { Router, RouterLink } from '@angular/router';
-import { DataService, Item } from '../../core/data/data';
+import { Router } from '@angular/router';
+import { State } from '../../core/services/state';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   templateUrl: './dashboard.html',
 })
-export class Dashboard implements OnInit {
-  items: Item[] = [];
-  lastViewedId: number | null = null;
-
+export class Dashboard {
+  // Inject BOTH Auth Service for routing AND our new State Service for Cart Data
   constructor(
     private authService: Auth, 
     private router: Router,
-    private dataService: DataService
+    public stateService: State
   ) {}
-
-  ngOnInit() {
-    this.items = this.dataService.getItems();
-    this.lastViewedId = this.dataService.getLastViewed();
-  }
 
   logout() {
     this.authService.logout();
