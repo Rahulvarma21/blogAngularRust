@@ -1,0 +1,44 @@
+<div style="max-width: 400px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px;">
+  <h2>Account Registration</h2>
+  
+  <div *ngIf="successMessage" style="color: green; padding-bottom: 10px; font-weight: bold;">
+    {{ successMessage }}
+  </div>
+
+  <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+    <!-- Name Field -->
+    <div style="margin-bottom: 15px;">
+      <label>Name:</label><br/>
+      <input type="text" formControlName="name" style="width: 100%; padding: 8px;" />
+      <!-- Validation Messages -->
+      <div *ngIf="f['name'].touched && f['name'].invalid" style="color: red; font-size: 0.9em; margin-top: 5px;">
+        <span *ngIf="f['name'].errors?.['required']">Name is required.</span>
+        <span *ngIf="f['name'].errors?.['minlength']">Name must be at least 2 characters string.</span>
+      </div>
+    </div>
+
+    <!-- Email Field -->
+    <div style="margin-bottom: 15px;">
+      <label>Email Address:</label><br/>
+      <input type="email" formControlName="email" style="width: 100%; padding: 8px;" />
+      <div *ngIf="f['email'].touched && f['email'].invalid" style="color: red; font-size: 0.9em; margin-top: 5px;">
+        <span *ngIf="f['email'].errors?.['required']">Email is required.</span>
+        <span *ngIf="f['email'].errors?.['email']">Please enter a valid email format.</span>
+      </div>
+    </div>
+
+    <!-- Password Field -->
+    <div style="margin-bottom: 15px;">
+      <label>Password:</label><br/>
+      <input type="password" formControlName="password" style="width: 100%; padding: 8px;" />
+      <div *ngIf="f['password'].touched && f['password'].invalid" style="color: red; font-size: 0.9em; margin-top: 5px;">
+        <span *ngIf="f['password'].errors?.['required']">Password is required.</span>
+        <span *ngIf="f['password'].errors?.['minlength']">Password must be at least 6 characters.</span>
+      </div>
+    </div>
+
+    <button type="submit" style="width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      Create Account
+    </button>
+  </form>
+</div>
