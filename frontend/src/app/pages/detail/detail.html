@@ -1,0 +1,16 @@
+<div style="padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+  <h2>Item Details</h2>
+  
+  <div *ngIf="item; else noItem">
+    <h3>{{ item.name }} (ID: {{ item.id }})</h3>
+    <p>{{ item.description }}</p>
+  </div>
+
+  <ng-template #noItem>
+    <p style="color: red;">{{ errorMsg }}</p>
+  </ng-template>
+
+  <br />
+  <!-- Programmatic navigation hooked to a click event -->
+  <button (click)="goBack()">Back to Dashboard</button>
+</div>
