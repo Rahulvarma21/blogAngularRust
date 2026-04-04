@@ -1,0 +1,9 @@
+<h2>Login Component</h2>
+<p>Authentication State: 
+  <span [style.color]="authService.isLoggedIn() ? 'green' : 'red'">
+    {{ authService.isLoggedIn() ? 'Logged In' : 'Logged Out' }}
+  </span>
+</p>
+
+<button (click)="login()" [disabled]="authService.isLoggedIn()">Simulate Login</button>
+<button (click)="logout()" [disabled]="!authService.isLoggedIn()">Simulate Logout</button>

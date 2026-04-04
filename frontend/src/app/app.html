@@ -1,4 +1,9 @@
-<main>
-  <app-binding-demo></app-binding-demo>
-</main>
-<router-outlet />
+<nav style="display:flex; gap: 15px; margin-bottom: 20px; padding: 10px 20px; background: #eee; border-radius: 8px;">
+  <a routerLink="/home" routerLinkActive="active" style="text-decoration: none; font-weight: bold; color: #333;">Home</a>
+  <a routerLink="/login" routerLinkActive="active" style="text-decoration: none; font-weight: bold; color: #333;">Login</a>
+  <a routerLink="/dashboard" routerLinkActive="active" style="text-decoration: none; font-weight: bold; color: #333;">Dashboard (Locked)</a>
+</nav>
+
+<div style="padding: 20px; border: 1px solid #ccc; border-radius: 8px; min-height: 200px;">
+  <router-outlet></router-outlet>
+</div>
