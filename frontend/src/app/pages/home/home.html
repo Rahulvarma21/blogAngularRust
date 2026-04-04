@@ -1,3 +1,16 @@
-<h2>Home Component</h2>
-<p>This is a PUBLIC page.</p>
-<p>Anyone can access this page without needing to log in.</p>
+<h2>Product Library (Home View)</h2>
+<p>Testing Dependency Injection & Services! Add items down beneath. Changes will reflect instantly on the Dashboard Cart!</p>
+
+<div *ngIf="stateService.error$() as errorMsg" style="background: pink; color: red; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+  <strong>Edge Case Triggered/Handled:</strong> {{ errorMsg }}
+</div>
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <div *ngFor="let prod of availableProducts" style="border: 1px solid #ccc; padding: 15px; border-radius: 8px; width: 250px;">
+    <h4>{{ prod.name }}</h4>
+    <p>Price: ${{ prod.price }}</p>
+    <button (click)="add(prod)" style="background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer;">
+      Add to Cart
+    </button>
+  </div>
+</div>
