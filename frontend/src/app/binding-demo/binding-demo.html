@@ -1,0 +1,46 @@
+<div class="binding-container">
+  <!-- A. Interpolation -->
+  <h2>{{ title }}</h2>
+
+  <hr />
+
+  <!-- B. Property Binding -->
+  <h3>Property Binding</h3>
+  <button [disabled]="isDisabled">Click (Disabled = {{ isDisabled }})</button>
+  <br /><br />
+  <img [src]="imgUrl" alt="Random Image from Picsum" />
+  <br /><br />
+  <button (click)="isDisabled = !isDisabled">Toggle Disable State</button>
+
+  <hr />
+
+  <!-- C. Event Binding -->
+  <h3>Event Binding</h3>
+  <button (click)="increment()">Increase</button>
+  <p>Current Count: {{ count }}</p>
+
+  <hr />
+
+  <!-- D. Two-Way Binding -->
+  <h3>Two-Way Binding</h3>
+  <input [(ngModel)]="username" placeholder="Enter name" />
+  <p>Hello, {{ username || 'Guest' }}!</p>
+
+  <hr />
+
+  <!-- Case Study: Cart Quantity Selector -->
+  <h3>Case Study: Cart Quantity Selector</h3>
+  <div class="cart-selector">
+    <!-- Event binding and Property binding on Decrease button -->
+    <button (click)="decreaseCart()" [disabled]="cartQuantity <= 1">-</button>
+    
+    <!-- Two-way binding for manual text input -->
+    <input type="number" [(ngModel)]="cartQuantity" />
+    
+    <!-- Event binding on Increase button -->
+    <button (click)="increaseCart()">+</button>
+  </div>
+  <!-- Interpolation to display the current quantity -->
+  <p>Quantity Display: {{ cartQuantity }}</p>
+
+</div>
