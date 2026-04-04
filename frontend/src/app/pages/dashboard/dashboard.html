@@ -1,4 +1,21 @@
 <h2>Dashboard Component</h2>
 <p style="color: green; font-weight: bold;">This is a PROTECTED page.</p>
-<p>If you are seeing this, you are authorized via the Route Guard.</p>
+
+<hr />
+<h3>Items Configuration</h3>
+<p *ngIf="lastViewedId" style="color: blue;">
+  <i>You recently viewed item #{{ lastViewedId }}!</i>
+</p>
+
+<ul>
+  <li *ngFor="let item of items" style="margin-bottom: 10px;">
+    <strong>{{ item.name }}</strong>
+    <!-- Use routerLink for declarative internal navigation -->
+    <a [routerLink]="['/detail', item.id]" style="margin-left: 10px; color: #007bff; text-decoration: none; border: 1px solid #007bff; padding: 2px 5px; border-radius: 4px;">
+      View Details
+    </a>
+  </li>
+</ul>
+
+<hr />
 <button (click)="logout()">Logout & Leave Dashboard</button>
