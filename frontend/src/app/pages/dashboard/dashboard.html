@@ -1,32 +1,31 @@
-<h2>Cart Summary (Dashboard)</h2>
-<p style="color: green; font-weight: bold;">This is a PROTECTED page.</p>
+<div class="max-w-4xl mx-auto p-6 mt-10 bg-white rounded-lg shadow-lg">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-gray-800">Application Dashboard</h1>
+    <button (click)="logout()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Logout</button>
+  </div>
 
-<hr />
-<!-- Edge Case Demonstration via Service Error Tracking -->
-<div *ngIf="stateService.error$() as errorMsg" style="background: pink; color: red; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
-  <strong>Edge Case Triggered/Handled:</strong> {{ errorMsg }}
+  <div class="mb-4 flex gap-4">
+    <button (click)="fetchUsersSafely()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Fetch Valid Database List</button>
+    <button (click)="testUnauthorizedHit()" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition">Simulate 401 Hacker Hit</button>
+  </div>
+
+  <div *ngIf="isLoading" class="p-4 bg-gray-100 rounded text-center text-gray-600 animate-pulse">
+    Executing network request explicitly...
+  </div>
+
+  <div *ngIf="errorMessage" class="p-4 mb-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+    <strong>API Security Exception:</strong> {{ errorMessage }}
+  </div>
+
+  <div *ngIf="!isLoading && !errorMessage">
+    <h2 class="text-xl font-semibold mb-3 border-b pb-2">Active PostgreSQL Users</h2>
+    <div *ngIf="users.length === 0" class="text-gray-500 italic">No users currently exist in the PostgreSQL Database.</div>
+    
+    <ul class="space-y-2">
+      <li *ngFor="let user of users" class="p-3 bg-gray-50 border rounded-lg shadow-sm flex justify-between">
+        <span class="font-medium">{{ user.name }}</span>
+        <span class="text-sm text-gray-500">{{ user.email }}</span>
+      </li>
+    </ul>
+  </div>
 </div>
-
-<!-- Empty data state simulation / edge case -->
-<div *ngIf="stateService.isCartEmpty(); else showCart" style="font-weight: bold; font-style: italic; color: #555;">
-  Your cart is completely empty! Navigate back Home to add products. 
-</div>
-
-<ng-template #showCart>
-  <ul>
-    <!-- Read state solely via the computed signal from our Service -->
-    <li *ngFor="let item of stateService.cartItems$()" style="margin-bottom: 15px;">
-      <strong>{{ item.name }}</strong> (x{{ item.quantity }})
-      <button (click)="stateService.removeFromCart(item.id)" style="margin-left: 15px; color: white; background: red; padding: 2px 6px; border: none; border-radius: 4px; cursor: pointer;">
-        Remove Item
-      </button>
-    </li>
-  </ul>
-  
-  <button (click)="stateService.clearCart()" style="background: orange; border: none; padding: 6px 12px; cursor: pointer; border-radius:4px;">
-    Clear Whole Cart
-  </button>
-</ng-template>
-
-<hr />
-<button (click)="logout()">Logout & Leave Dashboard</button>
