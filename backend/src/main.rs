@@ -1,4 +1,5 @@
 use axum::{
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -6,113 +7,130 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 use std::env;
+use std::sync::Arc;
 
-// --- Models ---
-#[derive(Deserialize)]
-struct TaskRequest {
-    title: String,
-    // Demonstrating `Option` for optional/missing values instead of crashing when mapping fails explicitly
-    description: Option<String>, 
+// --- App State holding Optional Database Connection ---
+// This handles the explicit "Database Connection Failure" edge case assigned!
+// If Postgres is offline, the Axum server STILL RUNS, but Database-reliant routes return graceful API Errors!
+struct AppState {
+    db: Option<PgPool>,
 }
 
-#[derive(Serialize)]
-struct TaskResponse {
-    message: String,
-    internal_id: i32,
-}
-
-// --- Custom API Error Model ---
-// This enum centralizes API failure formatting!
+// --- API Error Modeling ---
 enum ApiError {
-    BadRequest(String),
-    InternalServerError(anyhow::Error),
+    DatabaseOffline,
+    QueryFailed(anyhow::Error),
 }
 
-// Convert our custom error natively into a perfectly shaped Axum HTTP HTTP Response!
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
-            ApiError::InternalServerError(err) => {
-                // Log the exact `anyhow` trace secretly in the server logs...
-                eprintln!("INTERNAL SYSTEM FAILURE: {:?}", err);
-                
-                // ... But return a sanitized safe string directly to the client
-                (StatusCode::INTERNAL_SERVER_ERROR, "An internal server error occurred.".to_string())
+            ApiError::DatabaseOffline => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "The database connection is currently offline. Please ensure PostgreSQL is running.",
+            ),
+            ApiError::QueryFailed(err) => {
+                eprintln!("Database Exception: {:?}", err);
+                (StatusCode::INTERNAL_SERVER_ERROR, "A query execution failed internally.")
             }
         };
 
-        // Construct a structured Custom JSON format returning specifically {"error": "..."}
-        let body = Json(json!({
-            "error": error_message
-        }));
-
-        (status, body).into_response()
+        (status, Json(json!({ "error": error_message }))).into_response()
     }
 }
 
-// --- Internal Business Logic (Using Anyhow) ---
-// Simulates an unpredictable internal backend action (like a Database Call or file write)
-fn mock_db_save(task_title: &str) -> anyhow::Result<i32> {
-    if task_title == "CRASH_DB" { // Magic String for Demo Purposes
-        // `anyhow::bail!` generates an explicit Err safely. Alternatively, we use `?` operator on failing functions!
-        anyhow::bail!("Database connection randomly severed while saving!");
-    }
+// --- Request / Response Models ---
+#[derive(Deserialize)]
+struct CreateUserRequest {
+    name: String,
+    email: String,
+}
+
+#[derive(Serialize)]
+struct UserResponse {
+    id: i32,
+    name: String,
+    email: String,
+}
+
+// --- Route Handlers ---
+async fn root() -> &'static str {
+    "Rust backend is running! (Postgres SQLx configuration active)"
+}
+
+// Target Endpoint safely executing SQL logic
+async fn create_user(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateUserRequest>,
+) -> Result<(StatusCode, Json<UserResponse>), ApiError> {
     
-    // Simulate successful database insertion ID assignment
-    Ok(999) 
-}
+    // EDGE CASE: Handle gracefully when Database Pool was never successfully created at boot!
+    let pool = state.db.as_ref().ok_or(ApiError::DatabaseOffline)?;
 
-// --- Main Handler ---
-async fn create_task(
-    // Axum automatically rejects explicitly malformed blobs, but passes through verified typed boundaries
-    Json(payload): Json<TaskRequest>,
-) -> Result<Json<TaskResponse>, ApiError> {
+    // Execute safe Parameterized Query (Protection against SQL Injection)
+    let sql = "
+        INSERT INTO users (name, email) 
+        VALUES ($1, $2) 
+        RETURNING id, name, email
+    ";
 
-    // 1. Validating User Input safely (No unchecked unwraps!)
-    if payload.title.trim().is_empty() {
-        return Err(ApiError::BadRequest("Title field cannot be strictly empty whitespace!".into()));
-    }
+    // Because tables might not exist (due to lack of migrations in this snippet), we securely trap any DB query crash dynamically!
+    let row = sqlx::query(sql)
+        .bind(&payload.name)
+        .bind(&payload.email)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| ApiError::QueryFailed(e.into()))?;
 
-    // 2. Safely pulling Option parameters utilizing Rust matching (rather than blinding unwrapping)
-    let desc = match payload.description {
-        Some(d) if !d.is_empty() => d,
-        _ => "No description provided by client.".to_string(),
+    let user = UserResponse {
+        id: row.try_get("id").unwrap_or(0), 
+        name: row.try_get("name").unwrap_or(payload.name),
+        email: row.try_get("email").unwrap_or(payload.email),
     };
 
-    println!("Attempting to save: {} - {}", payload.title, desc);
-
-    // 3. Passing to inner logic tracking Anyhow errors. E.g mapping Anyhow -> ApiError cleanly
-    let db_id = mock_db_save(&payload.title)
-        .map_err(ApiError::InternalServerError)?; // The ? Operator elegantly propagates the mapped error returning early!
-
-    // 4. Wrap the beautiful success!
-    Ok(Json(TaskResponse {
-        message: "Successfully drafted Task in DB".to_string(),
-        internal_id: db_id,
-    }))
+    Ok((StatusCode::CREATED, Json(user)))
 }
 
-// Basic root functions ensuring server is alive
-async fn root() -> &'static str { "Rust backend is running" }
-async fn health_check() -> &'static str { "OK - Backend is healthy" }
-
-
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
+    // 1. Initializing environment constants reliably
+    dotenvy::dotenv().ok(); // Gracefully ignore if `.env` is purely missing
+
+    // 2. Safely Attempt Database Connection
+    let db_url = env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://demo_user:demo_password@localhost:5432/angrustblog_db".to_string());
+    
+    println!("Booting... Attempting to connect to Postgres -> {}", db_url);
+
+    // Instead of panicked unwrap(), we safely match the pool state ensuring Axum ALWAYS spins up regardless of DB status.
+    let db_pool = match PgPoolOptions::new().max_connections(5).connect(&db_url).await {
+        Ok(pool) => {
+            println!(" ✅ PostgreSQL Connection Successfully Established!");
+            Some(pool)
+        }
+        Err(e) => {
+            println!(" ⚠️ PostgreSQL Connection Failed: {}. \n -> System will boot into degraded state natively handling dead DB interactions gracefully!", e);
+            None
+        }
+    };
+
+    // 3. Mount Application State & Routes
+    let app_state = Arc::new(AppState { db: db_pool });
+
     let app = Router::new()
         .route("/", get(root))
-        .route("/health", get(health_check))
-        .route("/task", post(create_task)); // Our Safe Error Handled Pipeline
+        .route("/users", post(create_user))
+        .with_state(app_state);
 
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let bind_address = format!("127.0.0.1:{}", port);
     
-    let listener = tokio::net::TcpListener::bind(&bind_address)
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
 
-    println!("Server listening on http://{}", bind_address);
-    axum::serve(listener, app).await.unwrap();
+    println!(" 🚀 Server listening on http://{}", bind_address);
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
