@@ -9,14 +9,11 @@ async fn root() -> &'static str {
     "Rust backend is running"
 }
 
-// Health check endpoint explicitly answering GET /health
 async fn health_check() -> &'static str {
     "OK - Backend is healthy"
 }
 
-// --- REST Endpoint Requirements ---
-
-// 1. Definition of models used for request validation & response formatting
+// Assignment 7: User implementation
 #[derive(Deserialize)]
 struct CreateUser {
     name: String,
@@ -31,30 +28,54 @@ struct UserResponse {
     message: String,
 }
 
-// 2. Handler Logic utilizing Typed Request Input
 async fn create_user(
-    // axum::Json automatically validates and deserializes the incoming request body against CreateUser
     Json(payload): Json<CreateUser>,
 ) -> (StatusCode, Json<UserResponse>) {
-    // Applying generic mock logic
     let new_user = UserResponse {
-        id: 101, // Mocked ID creation for demonstration
+        id: 101, 
         name: payload.name,
         age: payload.age,
         message: "User successfully created!".to_string(),
     };
-
-    // Return structured REST JSON response alongside HTTP 201 Created code
     (StatusCode::CREATED, Json(new_user))
 }
 
+// Assignment 8: Serde Profile implementation
+#[derive(Deserialize)]
+struct CreateProfileRequest {
+    name: String,
+    email: String,
+}
+
+#[derive(Serialize)]
+struct ProfileResponse {
+    id: i32,
+    name: String,
+    email: String,
+}
+
+async fn create_profile(
+    // Automatic Serde deserialization handles payload rejection if invalid JSON or missing fields
+    Json(payload): Json<CreateProfileRequest>,
+) -> (StatusCode, Json<ProfileResponse>) {
+    // Generate the serialized response
+    let profile_response = ProfileResponse {
+        id: 504, 
+        name: payload.name,
+        email: payload.email,
+    };
+
+    (StatusCode::CREATED, Json(profile_response))
+}
+
+
 #[tokio::main]
 async fn main() {
-    // 3. Registering the routes using the Axum Router
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health_check))
-        .route("/users", post(create_user)); // Setup POST target
+        .route("/users", post(create_user))
+        .route("/profile", post(create_profile)); // Added Serde Profile Route
 
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let bind_address = format!("127.0.0.1:{}", port);
