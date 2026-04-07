@@ -1,14 +1,13 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Auth } from '../../core/auth/auth';
+import { Auth } from '../../../core/auth/auth';
 import { Router } from '@angular/router';
-import { ApiService, User } from '../../core/services/api.service';
+import { ApiService, User } from '../../../core/services/api.service';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged, switchMap, throttleTime, tap } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
-  standalone: true,
-  imports: [CommonModule],
+  standalone: false,
   templateUrl: './dashboard.html',
 })
 export class Dashboard implements OnInit, OnDestroy {
