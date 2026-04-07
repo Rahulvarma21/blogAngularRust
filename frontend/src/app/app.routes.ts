@@ -1,25 +1,25 @@
 import { Routes } from '@angular/router';
 import { Home } from './pages/home/home';
-import { Login } from './pages/login/login';
-import { Dashboard } from './pages/dashboard/dashboard';
-import { Detail } from './pages/detail/detail';
-import { Register } from './pages/register/register';
-import { AuthGuard } from './core/auth/auth-guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
-  { path: 'home', component: Home },      // Public 
-  { path: 'login', component: Login },    // Public
-  { path: 'register', component: Register }, // Public Form
+  
+  // 1. Static Public Route
+  { path: 'home', component: Home },
+  
+  // 2. Feature-based Lazy Loading for AuthModule
+  // This ensures the Login/Register logic is only loaded when users attempt to authenticate!
+  { 
+    path: '', 
+    loadChildren: () => import('./features/auth/auth.module').then(m => m.AuthModule) 
+  },
+  
+  // 3. Feature-based Lazy Loading for DashboardModule (Protected)
+  // Encapsulates all dashboard, detail and user management features organically
   { 
     path: 'dashboard', 
-    component: Dashboard, 
-    canActivate: [AuthGuard]             // Protected
+    loadChildren: () => import('./features/dashboard/dashboard.module').then(m => m.DashboardModule) 
   },
-  { 
-    path: 'detail/:id', 
-    component: Detail,
-    canActivate: [AuthGuard]
-  },
+  
   { path: '**', redirectTo: 'home' }
 ];

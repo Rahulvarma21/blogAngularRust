@@ -1,12 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, User } from '../../core/services/api.service';
+import { ApiService, User } from '../../../core/services/api.service';
 
 @Component({
   selector: 'app-detail',
-  standalone: true,
-  imports: [CommonModule],
+  standalone: false,
   templateUrl: './detail.html',
 })
 export class Detail implements OnInit {

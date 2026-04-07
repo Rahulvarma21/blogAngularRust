@@ -1,11 +1,10 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { State, Product } from '../../core/services/state';
+import { State, Product } from '../../../core/services/state';
 
 @Component({
   selector: 'app-home',
-  standalone: true,
-  imports: [CommonModule],
+  standalone: false,
   templateUrl: './home.html',
 })
 export class Home {
