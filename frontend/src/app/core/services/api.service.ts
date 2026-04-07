@@ -25,18 +25,18 @@ export interface ProfileResponse {
 }
 
 @Injectable({
-  providedIn: 'root' 
+  providedIn: 'root'
 })
 export class ApiService {
   private baseUrl = 'http://127.0.0.1:8080';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   // 1. Centralized Error Mapping 
   // (NOTE: The Global Interceptor natively handles 401 Expiry re-directs now. This simply formats Strings specifically for UI elements organically)
   private handleCentralizedError(err: HttpErrorResponse): Observable<never> {
     let errorMessage = 'An unknown Request validation error occurred.';
-    
+
     if (err.status === 0) {
       errorMessage = "Network Error: Unable to connect to the Rust Backend. Is the server booted?";
     } else if (err.status === 401 || err.status === 403) {
@@ -54,10 +54,10 @@ export class ApiService {
 
   // 2. Ultra-Clean Architectural Logic!
   // Notice there is absolutely NO `getAuthHeaders()` duplicate logic anywhere explicitly! The Interceptor organically parses tracking perfectly!
-  
+
   getProtectedUsers(): Observable<User[]> {
     return this.http.get<User[]>(`${this.baseUrl}/users`)
-      .pipe(catchError((err) => this.handleCentralizedError(err))); 
+      .pipe(catchError((err) => this.handleCentralizedError(err)));
   }
 
   getUserById(id: number): Observable<User> {
