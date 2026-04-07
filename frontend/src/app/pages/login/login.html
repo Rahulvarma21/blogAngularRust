@@ -1,9 +1,60 @@
-<h2>Login Component</h2>
-<p>Authentication State: 
-  <span [style.color]="authService.isLoggedIn() ? 'green' : 'red'">
-    {{ authService.isLoggedIn() ? 'Logged In' : 'Logged Out' }}
-  </span>
-</p>
+<div class="min-h-screen flex items-center justify-center bg-gray-50">
+  <div class="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border">
+    <div class="text-center mb-8">
+      <h2 class="text-3xl font-extrabold text-blue-900 tracking-tight">Full Stack Login</h2>
+      <p class="text-gray-500 mt-2 text-sm">Valid dummy configurations: admin@admin.com / supersecret</p>
+    </div>
 
-<button (click)="login()" [disabled]="authService.isLoggedIn()">Simulate Login</button>
-<button (click)="logout()" [disabled]="!authService.isLoggedIn()">Simulate Logout</button>
+    <div *ngIf="loginError" class="mb-6 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium">
+      {{ loginError }}
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-6">
+      <!-- Email Field -->
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+        <input 
+          id="email" 
+          type="email" 
+          formControlName="email"
+          placeholder="admin@admin.com"
+          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none"
+          [ngClass]="{'border-red-500': loginForm.get('email')?.invalid && loginForm.get('email')?.touched}"
+        />
+        <div *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched" class="mt-1 text-xs text-red-500">
+          A valid email address is required.
+        </div>
+      </div>
+
+      <!-- Password Field -->
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input 
+          id="password" 
+          type="password" 
+          formControlName="password"
+          placeholder="supersecret"
+          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none"
+          [ngClass]="{'border-red-500': loginForm.get('password')?.invalid && loginForm.get('password')?.touched}"
+        />
+        <div *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="mt-1 text-xs text-red-500">
+          Password must be at least 4 characters long.
+        </div>
+      </div>
+
+      <!-- Submit Block -->
+      <button 
+        type="submit" 
+        [disabled]="loginForm.invalid || isLoading"
+        class="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+      >
+        <svg *ngIf="isLoading" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span *ngIf="!isLoading">Secure Login</span>
+        <span *ngIf="isLoading">Authenticating...</span>
+      </button>
+    </form>
+  </div>
+</div>
