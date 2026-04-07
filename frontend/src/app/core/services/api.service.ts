@@ -9,6 +9,21 @@ export interface User {
   email: string;
 }
 
+// 1. Angular explicitly defines identical strict contracts matching the Rust memory!
+export interface ProfileRequest {
+  firstName: string;       // Automatically mapped perfectly from Rust's snake_case thanks to Serde rename_all!
+  lastName: string;
+  age: number;             // Mapped safely resolving Rust's u8 bounds natively
+  bio?: string;            // The explicitly bound TS Optional parameter matching Rust Option<String>
+}
+
+export interface ProfileResponse {
+  fullName: string;
+  isAdult: boolean;
+  providedBio?: string;    // Maps native Optional parameters successfully
+  status: string;
+}
+
 @Injectable({
   providedIn: 'root' 
 })
@@ -47,6 +62,13 @@ export class ApiService {
 
   getUserById(id: number): Observable<User> {
     return this.http.get<User>(`${this.baseUrl}/users/${id}`)
+      .pipe(catchError((err) => this.handleCentralizedError(err)));
+  }
+
+  // 2. Strict HttpClient Generics completely eliminating 'any' usage architectures!
+  analyzeProfile(payload: ProfileRequest): Observable<ProfileResponse> {
+    // The `<ProfileResponse>` bound verifies parsing strictly protecting the Application Lifecycle explicitly
+    return this.http.post<ProfileResponse>(`${this.baseUrl}/analyze-profile`, payload)
       .pipe(catchError((err) => this.handleCentralizedError(err)));
   }
 

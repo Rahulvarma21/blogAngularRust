@@ -113,6 +113,36 @@ async fn require_auth(req: Request, next: Next) -> Result<Response, ApiError> {
     Ok(next.run(req).await)
 }
 
+// --- End-to-End Strict Typing Architectural Example --- //
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")] // Automates perfectly mapping Typescript variables (firstName) smoothly into Rust (first_name)
+struct ProfileRequest {
+    first_name: String,
+    last_name: String,
+    age: u8,
+    bio: Option<String>, // Explicit mapping proving Optional / Null checking organically
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProfileResponse {
+    full_name: String,
+    is_adult: bool,
+    provided_bio: Option<String>, // Native optional response mirroring types precisely
+    status: String,
+}
+
+// Strictly Typed Handler rejecting missing boundaries automatically mapping memory structures natively
+async fn analyze_profile_handler(Json(payload): Json<ProfileRequest>) -> Result<Json<ProfileResponse>, ApiError> {
+    let response = ProfileResponse {
+        full_name: format!("{} {}", payload.first_name, payload.last_name),
+        is_adult: payload.age >= 18,
+        provided_bio: payload.bio,
+        status: "Profile natively strictly serialized correctly matching End-To-End typing guarantees!".to_string(),
+    };
+    Ok(Json(response))
+}
+
 
 #[derive(Deserialize)]
 struct CreateUserRequest {
@@ -197,6 +227,7 @@ async fn main() -> anyhow::Result<()> {
     let protected_routes = Router::new()
         .route("/users", get(list_users).post(create_user)) 
         .route("/users/:id", get(get_user).put(update_user).delete(delete_user))
+        .route("/analyze-profile", post(analyze_profile_handler)) // Mapped strict typed architectural route!
         .route_layer(axum::middleware::from_fn(require_auth)); // Cryptographic hook applied securely
 
     // PUBLIC TARGETS
