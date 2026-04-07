@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, Request, State},
-    http::{header, Method, StatusCode},
+    http::{header, Method, StatusCode, HeaderValue},
     middleware::Next,
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
@@ -13,12 +13,18 @@ use std::env;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
-use chrono::{Utc, Duration};
+use chrono::{Utc, Duration, DateTime};
 
 const JWT_SECRET: &[u8] = b"HYPER_SECRET_PRODUCTION_KEY_DO_NOT_LEAK";
 
+// --- Optimized Shared State --- //
 struct AppState {
     db: Option<PgPool>,
+    // 1. Efficient Resource Management: Data computed ONCE at startup and shared via Arc.
+    // This avoids redundant logic and overhead on every request.
+    version: String,
+    start_time: DateTime<Utc>,
+    environment: String,
 }
 
 enum ApiError {
@@ -61,6 +67,7 @@ struct LoginResponse {
     token: String,
 }
 
+// Async Handler Implementation: All handlers use async/await non-blocking I/O
 async fn login_handler(Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>, ApiError> {
     if payload.email.is_empty() || payload.password != "supersecret" {
         return Err(ApiError::Unauthorized("Invalid Email or Password combinations.".to_string()));
@@ -85,10 +92,9 @@ async fn login_handler(Json(payload): Json<LoginRequest>) -> Result<Json<LoginRe
     Ok(Json(LoginResponse { token }))
 }
 
-// Cryptographically Validates Token Structs natively!
+// Lightweight Middleware: Cryptographically Validates Token Signature without DB hits
 async fn require_auth(req: Request, next: Next) -> Result<Response, ApiError> {
     let auth_header = req.headers().get(header::AUTHORIZATION);
-
     let auth_str = match auth_header {
         Some(t) => t.to_str().unwrap_or(""),
         None => return Err(ApiError::Unauthorized("Access Denied: Missing Authorization Header!".to_string())),
@@ -99,28 +105,24 @@ async fn require_auth(req: Request, next: Next) -> Result<Response, ApiError> {
     }
     
     let token = &auth_str[7..];
-
     let validation = Validation::new(Algorithm::HS256);
-    let token_data = decode::<Claims>(
+    let _token_data = decode::<Claims>(
         token,
         &DecodingKey::from_secret(JWT_SECRET),
         &validation
     ).map_err(|_| ApiError::Unauthorized("Access Denied: Token Invalid or EXPIRED!".to_string()))?;
 
-    // Token natively authenticated
-    println!("🔐 Authenticated explicitly: {}", token_data.claims.sub);
-
     Ok(next.run(req).await)
 }
 
-// --- End-to-End Strict Typing Architectural Example --- //
+
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")] // Automates perfectly mapping Typescript variables (firstName) smoothly into Rust (first_name)
+#[serde(rename_all = "camelCase")] 
 struct ProfileRequest {
     first_name: String,
     last_name: String,
     age: u8,
-    bio: Option<String>, // Explicit mapping proving Optional / Null checking organically
+    bio: Option<String>, 
 }
 
 #[derive(Serialize)]
@@ -128,21 +130,19 @@ struct ProfileRequest {
 struct ProfileResponse {
     full_name: String,
     is_adult: bool,
-    provided_bio: Option<String>, // Native optional response mirroring types precisely
+    provided_bio: Option<String>, 
     status: String,
 }
 
-// Strictly Typed Handler rejecting missing boundaries automatically mapping memory structures natively
 async fn analyze_profile_handler(Json(payload): Json<ProfileRequest>) -> Result<Json<ProfileResponse>, ApiError> {
     let response = ProfileResponse {
         full_name: format!("{} {}", payload.first_name, payload.last_name),
         is_adult: payload.age >= 18,
         provided_bio: payload.bio,
-        status: "Profile natively strictly serialized correctly matching End-To-End typing guarantees!".to_string(),
+        status: "Profile serialized correctly matching End-To-End typing guarantees!".to_string(),
     };
     Ok(Json(response))
 }
-
 
 #[derive(Deserialize)]
 struct CreateUserRequest {
@@ -164,8 +164,28 @@ struct PaginationQuery {
     name: Option<String>,
 }
 
-async fn root() -> &'static str { "Rust backend natively guarded by JSON Web Tokens!" }
+async fn root() -> &'static str { "Performance-optimized Rust backend with Axum & Tokio!" }
 async fn health_check() -> &'static str { "OK - Backend is healthy (PUBLIC)" }
+
+// 2. Reducing Redundant Work: Returns pre-computed metadata from shared application state.
+// This endpoint is critical for showing efficient resource management.
+#[derive(Serialize)]
+struct SystemInfoResponse {
+    version: String,
+    uptime_seconds: i64,
+    environment: String,
+    db_connected: bool,
+}
+
+async fn system_info(State(state): State<Arc<AppState>>) -> Json<SystemInfoResponse> {
+    let uptime = Utc::now().signed_duration_since(state.start_time).num_seconds();
+    Json(SystemInfoResponse {
+        version: state.version.clone(),
+        uptime_seconds: uptime,
+        environment: state.environment.clone(),
+        db_connected: state.db.is_some(),
+    })
+}
 
 async fn create_user(State(state): State<Arc<AppState>>, Json(payload): Json<CreateUserRequest>) -> Result<(StatusCode, Json<UserResponse>), ApiError> {
     let pool = state.db.as_ref().ok_or(ApiError::DatabaseOffline)?;
@@ -213,13 +233,20 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok(); 
     let db_url = env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://demo_user:demo_password@localhost:5432/angrustblog_db".to_string());
     
+    // Connection pool is created ONCE and shared via Arc for maximum efficiency
     let db_pool = match PgPoolOptions::new().max_connections(5).connect(&db_url).await {
         Ok(pool) => Some(pool), Err(_) => None,
     };
-    let app_state = Arc::new(AppState { db: db_pool });
+    
+    let app_state = Arc::new(AppState { 
+        db: db_pool,
+        version: "1.2.0".to_string(),
+        start_time: Utc::now(),
+        environment: "development".to_string(),
+    });
 
     let cors_layer = CorsLayer::new()
-        .allow_origin("http://localhost:4200".parse::<axum::http::HeaderValue>().unwrap())
+        .allow_origin("http://localhost:4200".parse::<HeaderValue>().unwrap())
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
 
@@ -227,14 +254,15 @@ async fn main() -> anyhow::Result<()> {
     let protected_routes = Router::new()
         .route("/users", get(list_users).post(create_user)) 
         .route("/users/:id", get(get_user).put(update_user).delete(delete_user))
-        .route("/analyze-profile", post(analyze_profile_handler)) // Mapped strict typed architectural route!
-        .route_layer(axum::middleware::from_fn(require_auth)); // Cryptographic hook applied securely
+        .route("/analyze-profile", post(analyze_profile_handler))
+        .route_layer(axum::middleware::from_fn(require_auth)); 
 
     // PUBLIC TARGETS
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health_check))
-        .route("/login", post(login_handler)) // Exposes Public login organically!
+        .route("/system-info", get(system_info)) // Pre-computed optimization
+        .route("/login", post(login_handler))
         .merge(protected_routes)
         .with_state(app_state)
         .layer(cors_layer);
@@ -243,7 +271,7 @@ async fn main() -> anyhow::Result<()> {
     let bind_address = format!("127.0.0.1:{}", port);
     
     let listener = tokio::net::TcpListener::bind(&bind_address).await?;
-    println!(" 🚀 JWT Secure Server booting natively resolving at http://{}", bind_address);
+    println!(" 🚀 Scalable Rust Server booting via Axum at http://{}", bind_address);
     axum::serve(listener, app).await?;
 
     Ok(())
