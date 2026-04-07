@@ -26,6 +26,7 @@ export class Dashboard implements OnInit {
   }
 
   fetchUsersSafely() {
+    if (this.isLoading) return; // Prevent duplicate requests tracking sequentially
     this.isLoading = true;
     this.errorMessage = null;
 
@@ -37,27 +38,39 @@ export class Dashboard implements OnInit {
       },
       error: (err) => {
         this.isLoading = false;
-        console.error("API Validation Failed:", err);
-        // Explicitly extract the nested custom Server Backend error mapping!
-        this.errorMessage = err.error?.error || "Unknown Server Failure Occurred!";
+        this.handleErrorResponse(err);
       }
     });
   }
 
   testUnauthorizedHit() {
+    if (this.isLoading) return; // Lock the button out sequentially 
     this.isLoading = true;
     this.errorMessage = null;
 
     this.apiService.getUnauthorizedUsers().subscribe({
       next: (data) => {
         console.log("This shouldn't happen!", data);
+        this.isLoading = false;
       },
       error: (err) => {
         this.isLoading = false;
-        // Extracts the explicit Http 401 Axum Exception directly onto the UI!
-        this.errorMessage = err.error?.error || "Authentication Error Triggered!";
+        this.handleErrorResponse(err);
       }
     });
+  }
+
+  // Differentiate Error Responses cleanly shielding User visually!
+  handleErrorResponse(err: any) {
+    if (err.status === 0) {
+      this.errorMessage = "Network Error: Unable to connect to the Rust Backend. Is the server booted?";
+    } else if (err.status === 401 || err.status === 403) {
+      this.errorMessage = "Authentication Error: " + (err.error?.error || "Invalid credentials provided.");
+    } else if (err.status >= 500) {
+      this.errorMessage = "Server Error: The backend encountered an unpredictable panic.";
+    } else {
+      this.errorMessage = err.error?.error || "An unknown Request validation error occurred.";
+    }
   }
 
   logout() {
