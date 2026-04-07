@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DataService, Item } from '../../core/data/data';
+import { ApiService, User } from '../../core/services/api.service';
 
 @Component({
   selector: 'app-detail',
@@ -10,32 +10,42 @@ import { DataService, Item } from '../../core/data/data';
   templateUrl: './detail.html',
 })
 export class Detail implements OnInit {
-  item: Item | undefined;
-  errorMsg: string = '';
+  user: User | undefined;
+  errorMsg: string | null = null;
+  isLoading: boolean = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private dataService: DataService
+    private apiService: ApiService // Identical Service seamlessly injected here!
   ) {}
 
   ngOnInit(): void {
-    // Read route parameter 'id'
     const idParam = this.route.snapshot.paramMap.get('id');
     if (idParam !== null) {
       const id = parseInt(idParam, 10);
-      this.item = this.dataService.getItemById(id);
-      
-      if (this.item) {
-        // Track the state in our shared service
-        this.dataService.setLastViewed(id);
-      } else {
-        this.errorMsg = 'Item not found (edge case handled)';
-      }
+      this.fetchTargetUser(id);
     }
   }
 
-  // Programmatic navigation demonstration
+  fetchTargetUser(id: number) {
+    this.isLoading = true;
+    this.errorMsg = null;
+    
+    // Natively fetching exact database IDs abstracting logic securely!
+    this.apiService.getUserById(id).subscribe({
+      next: (data) => {
+        this.user = data;
+        this.isLoading = false;
+      },
+      error: (err: Error) => {
+        this.isLoading = false;
+        // React strictly to mapped centralized Service Error strings avoiding duplicating code structurally
+        this.errorMsg = err.message;
+      }
+    });
+  }
+
   goBack() {
     this.router.navigate(['/dashboard']);
   }
